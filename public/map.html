@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Locator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 1000px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<h2>Select a Location on the Map</h2>
+<p>Click on the map to choose a location and find nearby vehicles.</p>
+<div id="map" ></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    // Initialize the map
+    const map = L.map('map').setView([23.8103, 90.4125], 13); // Set initial center and zoom level for Dhaka, Bangladesh
+
+    // Load OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let marker; // Placeholder for the user's chosen location marker
+    let circle; // Placeholder for the radius circle
+
+    const vehicles = [
+        { id: 1, driver: "John", type: "Car", location: { latitude: 23.8103, longitude: 90.4125 }, available: true },
+        { id: 2, driver: "Alice", type: "Car", location: { latitude: 23.8234, longitude: 90.4256 }, available: true, distance: 1200 },
+        { id: 3, driver: "David", type: "Car", location: { latitude: 23.8365, longitude: 90.4387 }, available: true, distance: 2500 },
+        { id: 4, driver: "Emily", type: "Car", location: { latitude: 23.7992, longitude: 90.4058 }, available: true, distance: 1800 },
+        { id: 5, driver: "Michael", type: "Car", location: { latitude: 23.8123, longitude: 90.4199 }, available: true, distance: 3000 },
+        { id: 6, driver: "Sarah", type: "Car", location: { latitude: 23.8254, longitude: 90.4321 }, available: true, distance: 2200 },
+        { id: 7, driver: "Kevin", type: "Car", location: { latitude: 23.8385, longitude: 90.4443 }, available: true, distance: 4200 },
+        { id: 8, driver: "Jessica", type: "Car", location: { latitude: 23.8012, longitude: 90.4079 }, available: true, distance: 1500 },
+        { id: 9, driver: "Brian", type: "Car", location: { latitude: 23.8143, longitude: 90.4211 }, available: true, distance: 2800 },
+        { id: 10, driver: "Rachel", type: "Car", location: { latitude: 23.7972, longitude: 90.4038 }, available: true, distance: 2000 },
+        { id: 11, driver: "Chris", type: "Car", location: { latitude: 23.8103, longitude: 90.4159 }, available: true, distance: 3500 },
+        { id: 12, driver: "Laura", type: "Car", location: { latitude: 23.8234, longitude: 90.4281 }, available: true, distance: 2600 },
+        { id: 13, driver: "Tom", type: "Car", location: { latitude: 23.8365, longitude: 90.4403 }, available: true, distance: 4800 },
+        { id: 14, driver: "Lisa", type: "Car", location: { latitude: 23.8012, longitude: 90.4079 }, available: true, distance: 1300 },
+        { id: 15, driver: "Peter", type: "Car", location: { latitude: 23.8143, longitude: 90.4211 }, available: true, distance: 3100 },
+        { id: 16, driver: "Amy", type: "Car", location: { latitude: 23.7972, longitude: 90.4038 }, available: true, distance: 2300 },
+        { id: 17, driver: "Mark", type: "Car", location: { latitude: 23.8103, longitude: 90.4159 }, available: true, distance: 3800 },
+        { id: 18, driver: "Helen", type: "Car", location: { latitude: 23.8234, longitude: 90.4281 }, available: true, distance: 2900 },
+        { id: 19, driver: "Paul", type: "Car", location: { latitude: 23.8365, longitude: 90.4403 }, available: true, distance: 5100 },
+      ];
+
+    // Function to calculate distance between two points
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radius of the earth in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c * 1000; // Convert to meters
+        return distance;
+    }
+    loadNearbyVehicles(null, null);
+    // Function to fetch and display nearby vehicles
+    async function loadNearbyVehicles(lat, lon, isSelect=0) {
+        const radius = 2000; // Define a search radius (in meters)
+        let nearbyVehicles = [];
+
+        vehicles.forEach(vehicle => {
+            const distance = calculateDistance(lat, lon, vehicle.location.latitude, vehicle.location.longitude);
+            if (distance <= radius && vehicle.available) {
+                nearbyVehicles.push(vehicle);
+            }
+        });
+
+        if(!isSelect){
+            nearbyVehicles=vehicles;
+        }
+
+        // Remove all existing markers from the map
+        // map.eachLayer(layer => {
+        //     if (layer instanceof L.Marker && layer.getLatLng) {
+        //         const latLng = layer.getLatLng();
+        //         const layerLat = latLng.lat;
+        //         const layerLon = latLng.lng;
+        //         if (layerLat != lat && layerLon != lon) {
+        //             map.removeLayer(layer);
+        //         }
+        //
+        //     }
+        // });
+
+        if (nearbyVehicles.length === 0) {
+            return;
+        }
+
+        vehicles.forEach((vehicle,index) => {
+            let hasNearByCar=nearbyVehicles.find(_item=>(_item.location.latitude===vehicle.location.latitude)&&(_item.location.longitude===vehicle.location.longitude));
+            const iconUrl=Boolean(hasNearByCar)&& isSelect
+                ?'https://www.svgrepo.com/show/253022/car.svg'
+                :'https://www.svgrepo.com/show/480745/beetle-car.svg';
+            // Add a marker for each nearby vehicle
+            let randomLat =vehicle?.location?.latitude; // random latitude between -90 and 90
+            let randomLong = vehicle?.location?.longitude; // random longitude between -180 and 180
+
+            L.marker([randomLat, randomLong],{
+                icon: L.icon({
+                    iconUrl: iconUrl, // replace with your own icon URL
+                    iconSize: [30, 50], // size of the icon
+                    iconAnchor: [12, 41], // anchor point of the icon
+                    popupAnchor: [0, -30] // anchor point of the popup
+                })
+            })
+                .addTo(map)
+                .bindPopup(`<b>${vehicle.driver}</b><br>Type: ${vehicle.type}<br>Distance: ${vehicle.distance} meters`)
+                .openPopup();
+        });
+        let averageLat = vehicles.reduce((acc, vehicle) => acc + vehicle.location.latitude, 0) / vehicles.length;
+        let averageLon = vehicles.reduce((acc, vehicle) => acc + vehicle.location.longitude, 0) / vehicles.length;
+        L.map('map').setView([averageLat, averageLon], 10);
+        L.circle([averageLat, averageLon], {
+            radius: 2000, // meters
+            color: 'red',
+            weight: 2,
+            opacity: 0.5
+        }).addTo(map);
+    }
+
+    // Add click event to the map for selecting a location
+    map.on('click', function(e) {
+        const { lat, lng } = e.latlng;
+        // Remove existing marker and circle if any
+        if (marker) {
+            map.removeLayer(marker);
+        }
+        if (circle) {
+            map.removeLayer(circle);
+        }
+
+        // Add a new marker where the user clicked
+        marker = L.marker([lat, lng],{
+            icon: L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/1673/1673221.png', // replace with your own icon URL
+                iconSize: [30, 50], // size of the icon
+                iconAnchor: [12, 41], // anchor point of the icon
+                popupAnchor: [0, -30] // anchor point of the popup
+            })
+        }).addTo(map).bindPopup("You selected this location").openPopup();
+
+        // Add a radius circle around the selected location
+        circle = L.circle([lat, lng], {
+            radius: 2000, // meters
+            color: 'red',
+            weight: 2,
+            opacity: 0.5
+        }).addTo(map);
+
+        // Fetch and display nearby vehicles
+        loadNearbyVehicles(lat, lng, 1);
+    });
+</script>
+</body>
+</html>

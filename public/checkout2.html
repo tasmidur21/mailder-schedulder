@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout.com Integration</title>
+    <!-- Load the Checkout.com Frames SDK -->
+    <script src="https://cdn.checkout.com/js/framesv2.min.js"></script>
+    <style>
+        /* Basic styling for the card fields */
+        .frame {
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Subscribe to Our Plan</h1>
+<form id="subscription-form">
+    <!-- Card Fields rendered by Frames -->
+    <div id="card-number" class="frame"></div>
+    <div id="expiry-date" class="frame"></div>
+    <div id="cvv" class="frame"></div>
+    <button type="submit">Subscribe</button>
+</form>
+
+<script>
+    // Initialize Frames with your public key
+
+    document.addEventListener('DOMContentLoaded', function () {
+        Frames.init({
+            publicKey: 'pk_sbox_57pkr4zu4pmzemtvdleoohj4lyu'
+        });
+    });
+
+
+    // Event listener for the form submission
+    document.getElementById('subscription-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Tokenize the card data using Frames
+        Frames.submitCard().then(function (data) {
+            // Handle successful tokenization
+            console.log('Card token:', data.token);
+
+            // Send the token to your backend
+            fetch('/create-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cardToken: data.token,
+                    email: 'customer@example.com', // Replace with user email
+                    name: 'John Doe' // Replace with user name
+                })
+            }).then(response => response.json()).then(result => {
+                if (response.ok) {
+                    alert('Subscription successful!');
+                } else {
+                    alert(`Subscription failed: ${result.message}`);
+                }
+            });
+        }).catch(function (error) {
+            console.error('Tokenization failed:', error);
+        });
+    });
+</script>
+</body>
+</html>

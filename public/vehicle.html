@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map with Clickable Destination and Suggested Vehicles in Dhaka</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 70%;
+            float: left;
+        }
+        #controls {
+            width: 30%;
+            float: left;
+            padding: 10px;
+        }
+        #vehicle-list ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        #vehicle-list li {
+            padding: 8px;
+            margin: 5px 0;
+            background: #f1f1f1;
+            cursor: pointer;
+            border: 1px solid #ccc;
+        }
+        #vehicle-list li:hover {
+            background: #ddd;
+        }
+    </style>
+</head>
+<body>
+<h2>Map with Clickable Destination, Suggested Vehicles, and Search Area Circle in Dhaka</h2>
+<div id="map"></div>
+<div id="controls">
+    <h3>Suggested Vehicles</h3>
+    <ul id="vehicleUl"></ul>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Initialize the map centered on Dhaka
+    const map = L.map('map').setView([23.8103, 90.4125], 13); // Dhaka coordinates, zoom level 13
+
+    // Add OSM tiles to the map
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Function to simulate nearby vehicle data
+    function getNearbyVehicles() {
+        return [
+            { id: 1, lat: 23.8123, lng: 90.4125, name: "Vehicle 1" },
+            { id: 2, lat: 23.8103, lng: 90.4175, name: "Vehicle 2" },
+            { id: 3, lat: 23.8053, lng: 90.4105, name: "Vehicle 3" },
+            { id: 4, lat: 23.8143, lng: 90.4055, name: "Vehicle 4" },
+            { id: 5, lat: 23.8173, lng: 90.4205, name: "Vehicle 5" }
+        ];
+    }
+
+    // Add markers for nearby vehicles
+    const vehicles = getNearbyVehicles();
+    const markers = {};
+
+    vehicles.forEach(vehicle => {
+        const marker = L.marker([vehicle.lat, vehicle.lng])
+            .addTo(map)
+            .bindPopup(`${vehicle.name}`);
+        markers[vehicle.id] = marker;
+    });
+
+    // Function to calculate distance between two points (Haversine formula)
+    function getDistance(lat1, lng1, lat2, lng2) {
+        const toRad = x => x * Math.PI / 180;
+        const R = 6371; // Radius of the Earth in kilometers
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // Distance in kilometers
+    }
+
+    let searchAreaCircle; // Variable to store the circle instance
+
+    // Handle map click to get the destination coordinates
+    map.on('click', function(e) {
+        const destinationLatLng = e.latlng; // Get the clicked point coordinates
+
+        // Remove the previous circle if it exists
+        if (searchAreaCircle) {
+            map.removeLayer(searchAreaCircle);
+        }
+
+        // Draw a circle around the clicked point (e.g., with a 2 km radius)
+        searchAreaCircle = L.circle(destinationLatLng, {
+            color: 'blue',
+            fillColor: '#aad3df',
+            fillOpacity: 0.3,
+            radius: 2000 // 2 km radius
+        }).addTo(map);
+
+        // Filter vehicles based on proximity to the clicked destination (within 2 km)
+        const nearbyVehicles = vehicles
+            .map(vehicle => {
+                const distance = getDistance(vehicle.lat, vehicle.lng, destinationLatLng.lat, destinationLatLng.lng);
+                return { ...vehicle, distance }; // Include distance in the vehicle data
+            })
+            .filter(vehicle => vehicle.distance <= 2); // Show vehicles within 2 km of the destination
+
+        // Update the vehicle list view
+        const vehicleUl = document.getElementById('vehicleUl');
+        vehicleUl.innerHTML = ''; // Clear the list first
+        nearbyVehicles.forEach(vehicle => {
+            const li = document.createElement('li');
+            li.textContent = `${vehicle.name} - ${vehicle.distance.toFixed(2)} km away`;
+            li.onclick = function() {
+                // Zoom in and open the popup for the selected vehicle
+                map.setView([vehicle.lat, vehicle.lng], 15);
+                markers[vehicle.id].openPopup();
+            };
+            vehicleUl.appendChild(li);
+        });
+
+        // Zoom the map to fit all suggested vehicles
+        if (nearbyVehicles.length > 0) {
+            const vehicleGroup = L.featureGroup(nearbyVehicles.map(vehicle =>
+                markers[vehicle.id]
+            ));
+            map.fitBounds(vehicleGroup.getBounds());
+        } else {
+           // alert('No vehicles found near your selected destination.');
+        }
+    });
+</script>
+</body>
+</html>

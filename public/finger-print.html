@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Browser Fingerprinting with 2FA Example</title>
+</head>
+<body>
+<h1>Browser Fingerprinting with 2FA Example</h1>
+<button onclick="generateFingerprint()">Generate Fingerprint</button>
+<div id="fingerprint"></div>
+<br>
+<label for="totp">Enter TOTP code:</label>
+<input type="text" id="totp" />
+<button onclick="verifyTOTP()">Verify TOTP</button>
+<div id="totp-result"></div>
+
+<script>
+    function generateFingerprint() {
+        const fingerprint = {
+            userAgent: navigator.userAgent,
+            screenResolution: `${screen.width}x${screen.height}`,
+            language: navigator.language,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            canvasFingerprint: getCanvasFingerprint(),
+            webGLFingerprint: getWebGLFingerprint(),
+            fonts: getFonts(),
+            plugins: getPlugins(),
+            httpHeaders: getHTTPHeaders(),
+            deviceInformation: getDeviceInformation(),
+        };
+
+        const jsonFingerprint = JSON.stringify(fingerprint);
+        const encoder = new TextEncoder();
+        const data = encoder.encode(jsonFingerprint);
+
+        window.crypto.subtle.digest('SHA-256', data)
+            .then(hash => {
+                const fingerprintHash = Array.prototype.map.call(new Uint8Array(hash), x => ('00' + x.toString(16)).slice(-2)).join('');
+                document.getElementById('fingerprint').innerHTML = `Fingerprint: ${fingerprintHash}`;
+            })
+            .catch(error => console.error('Error generating fingerprint:', error));
+    }
+
+    function verifyTOTP() {
+        const totpInput = document.getElementById('totp').value;
+        const secretKey = 'your_secret_key_here'; // Replace with your secret key
+        const totp = getTOTP(secretKey);
+        if (totp === totpInput) {
+            document.getElementById('totp-result').innerHTML = 'TOTP verified!';
+        } else {
+            document.getElementById('totp-result').innerHTML = 'Invalid TOTP code';
+        }
+    }
+
+    function getTOTP(secretKey) {
+        const epoch = Math.floor(Date.now() / 1000);
+        const time = leftpad(epoch.toString(16), 16, '0');
+        const hmac = crypto.subtle.importKey('raw', new TextEncoder().encode(secretKey), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+        const signature = crypto.subtle.sign('HMAC', hmac, new TextEncoder().encode(time));
+        const offset = signature[signature.length - 1] & 0xF;
+        const binary = [];
+        for (let i = 0; i < 4; i++) {
+            binary.push((signature[offset + i] >> (i * 8)) & 0xFF);
+        }
+        const token = leftpad(binary.join(''), 6, '0');
+        return token;
+    }
+
+    function leftpad(str, len, pad) {
+        while (str.length < len) {
+            str = pad + str;
+        }
+        return str;
+    }
+
+    function getCanvasFingerprint() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 16;
+        canvas.height = 16;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, 16, 16);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.fillRect(1, 1, 14, 14);
+        const canvasData = canvas.toDataURL();
+        return canvasData;
+    }
+
+    function getWebGLFingerprint() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 16;
+        canvas.height = 16;
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) {
+            return null;
+        }
+        const fingerprint = [];
+        fingerprint.push(gl.getParameter(gl.RENDERER));
+        fingerprint.push(gl.getParameter(gl.VENDOR));
+        fingerprint.push(gl.getParameter(gl.VERSION));
+        fingerprint.push(gl.getExtension('WEBGL_debug_renderer_info'));
+        return fingerprint.join(',');
+    }
+
+    function getFonts() {
+        const fonts = [];
+        for (let i = 0; i < document.fonts.length; i++) {
+            fonts.push(document.fonts[i].family);
+        }
+        return fonts.join(',');
+    }
+
+    function getPlugins() {
+        const plugins = [];
+        for (let i = 0; i < navigator.plugins.length; i++) {
+            plugins.push(navigator.plugins[i].name);
+        }
+        return plugins.join(',');
+    }
+
+    function getHTTPHeaders() {
+        const headers = {};
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', '/', true);
+        xhr.onload = function() {
+            const headerString = xhr.getAllResponseHeaders();
+            const headersArray = headerString.trim().split(/[\r\n]+/);
+            headersArray.forEach(function(line) {
+                const parts = line.split(': ');
+                const header = parts.shift();
+                const value = parts.join(': ');
+                headers[header] = value;
+            });
+        };
+        xhr.send();
+        return JSON.stringify(headers);
+    }
+
+    function getDeviceInformation() {
+        const deviceInfo = {};
+        deviceInfo.platform = navigator.platform;
+        deviceInfo.userAgent = navigator.userAgent;
+        deviceInfo.language = navigator.language;
+        deviceInfo.hardwareConcurrency = navigator.hardwareConcurrency;
+        deviceInfo.deviceMemory = navigator.deviceMemory;
+        console.log(deviceInfo)
+        return JSON.stringify(deviceInfo);
+    }
+</script>
+</body>
+</html>

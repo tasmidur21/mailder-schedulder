@@ -1,0 +1,2 @@
+export const SEND_MAIL_EVENT ="SEND_MAIL_EVENT";
+export const SEND_SMS_EVENT ="SEND_SMS_EVENT";

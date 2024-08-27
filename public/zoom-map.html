@@ -1,0 +1,107 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Surrounding Latitude and Longitude</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map {
+            width: 100%;
+            height: 600px;
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<ul id="surrounding-coords"></ul>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+    const map = L.map('map').setView([30.0, 0.0], 12); // adjust to your desired initial view
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
+        subdomains: ['a', 'b', 'c']
+    }).addTo(map);
+
+    let markers = [];
+
+    function deg2num(latdeg, londeg, zoom) {
+        const latrad = Math.PI * latdeg / 180;
+        const n = 2.0 ** zoom;
+        const xtile = Math.floor((londeg + 180.0) / 360.0 * n);
+        const ytile = Math.floor((1.0 - Math.log(Math.tan(latrad) + (1 / Math.cos(latrad))) / Math.PI) / 2.0 * n);
+        return [xtile, ytile];
+    }
+
+    function getSurroundingLatLng(lat, lon, zoom) {
+        const tileWidth = 360 / (2 ** zoom);
+        const surroundingLons = [
+            lon - tileWidth / 2,
+            lon + tileWidth / 2,
+            lon - tileWidth,
+            lon + tileWidth
+        ];
+        const surroundingLats = [
+            lat - tileWidth / 2,
+            lat + tileWidth / 2,
+            lat - tileWidth,
+            lat + tileWidth
+        ];
+        return { surroundingLons, surroundingLats };
+    }
+
+    function updateSurroundingCoords() {
+        // Remove existing markers
+        markers.forEach((marker) => {
+            map.removeLayer(marker);
+        });
+        markers = [];
+
+        const zoom = map.getZoom();
+        const center = map.getCenter();
+        const lat = center.lat;
+        const lon = center.lng;
+        const { surroundingLons, surroundingLats } = getSurroundingLatLng(lat, lon, zoom);
+
+        // Clear the list
+        const ul = document.getElementById('surrounding-coords');
+        while (ul.firstChild) {
+            ul.removeChild(ul.firstChild);
+        }
+
+        // Add list items for surrounding latitude and longitude values
+        surroundingLons.forEach((lon, index) => {
+            const lat = surroundingLats[index];
+            const li = document.createElement('li');
+            li.textContent = `Lat: ${lat}, Lon: ${lon}`;
+            ul.appendChild(li);
+
+            // Add a marker to the map
+            const marker = L.marker([lat, lon]).addTo(map);
+            marker.bindPopup(`Lat: ${lat}, Lon: ${lon}`);
+            marker.openPopup();
+            console.log(marker);
+            markers.push(marker);
+        });
+
+        // Add a list item for the center point
+        const centerLi = document.createElement('li');
+        centerLi.textContent = `Center: Lat: ${lat}, Lon: ${lon}`;
+        ul.appendChild(centerLi);
+
+        // Add a marker to the map for the center point
+        const centerMarker = L.marker([lat, lon]).addTo(map);
+        centerMarker.bindPopup(`Center: Lat: ${lat}, Lon: ${lon}`);
+        centerMarker.openPopup();
+        markers.push(centerMarker);
+    }
+
+    // Update surrounding coordinates on zoom change
+    map.on('zoomend', updateSurroundingCoords);
+
+    // Initial update
+    updateSurroundingCoords();
+</script>
+</body>
+</html>
